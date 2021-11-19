@@ -1,30 +1,60 @@
 //  earthquake data for the past month, updated every minute
 var earthquakeUrl = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson";
 
-d3.json(earthquakeUrl).then(createEarthquakesLayer);
+var tectonicPlateUrl = "https://raw.githubusercontent.com/fraxen/tectonicplates/master/GeoJSON/PB2002_plates.json"
+
+
+d3.json(earthquakeUrl).then(function(earthquakeResponse){
+
+    var earthquakeLayer = createEarthquakesLayer(earthquakeResponse)
+
+    d3.json(tectonicPlateUrl).then(function(tectonicResponse){
+
+        var tectonicPlatesLayer = createTectonicPlatesLayer(tectonicResponse)
+
+        createMap(earthquakeLayer, tectonicPlatesLayer)
+
+    });
+
+});
+
+
 
 var mapCenter = [39.9283, -98.5795];
 var mapZoom = 5;
 
-function createMap(markerLayer) {
+function createMap(markerLayer, plateLayer) {
 
     // Create the tile layer that will be the background of our map.
     var streetMapLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     });
 
+    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+    });    
+
+    var satelliteLayer = L.tileLayer.provider('MapBox', {
+        id: 'mapbox/satellite-v9',
+        accessToken: 'pk.eyJ1IjoiamFjb2J0cmV2aXRoaWNrMSIsImEiOiJja3c2eG45bjgzNGtoMnZwYXRnYjJzNGttIn0.3qRI1UQUwRpCWWo_uFk1Tw'
+    });
+    
+
     var myMap = L.map('map', {
         center: mapCenter,
         zoom: mapZoom,
-        layers: [streetMapLayer, markerLayer]
+        layers: [streetMapLayer, markerLayer, topoLayer, plateLayer, satelliteLayer]
     });
 
     var baseMap = {
-        "Street Map": streetMapLayer
+        "Street Map": streetMapLayer,
+        "Topographical Map": topoLayer,
+        "Satellite Map": satelliteLayer
     };
 
     var earthquakeOverlayMap = {
-        "Earthquakes": markerLayer
+        "Earthquakes": markerLayer,
+        "Tectonic Plates": plateLayer
     };
 
     L.control.layers(baseMap, earthquakeOverlayMap, {
@@ -51,7 +81,6 @@ function createMap(markerLayer) {
 
     legend.addTo(myMap);
 };
-
 
 function createEarthquakesLayer(response) {
 
@@ -101,15 +130,24 @@ function createEarthquakesLayer(response) {
 
     var earthquakeLayerGroup = L.layerGroup(earthquakeMarkers);
 
-    createMap(earthquakeLayerGroup);
+    return earthquakeLayerGroup;
 
-}
+};
+
+function createTectonicPlatesLayer(response){
+    
+    var plates = response.features;
+
+    var tectonicPlates = L.geoJSON(plates);
+
+    return tectonicPlates;
+};
 
 function adjustMag(mag) {
     
     var inverseMag = Math.pow(10, mag)
     
-    return Math.sqrt(inverseMag) * 200;
+    return Math.sqrt(inverseMag) * 300;
 };
 
 function getColor(d) {
@@ -120,3 +158,4 @@ function getColor(d) {
            d > 10   ? '#82E0AA' :
                       '#1D8348';
 };
+
